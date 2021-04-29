@@ -24,6 +24,7 @@ router.post(
     checkValidations,
     userController.forgotPassword
 );
-// router.patch('/resetPassword/:token', userController.resetPassword);
+
+router.patch('/resetPassword/:token', userController.resetPassword);
 
 export default router;

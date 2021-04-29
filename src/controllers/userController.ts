@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import { Request, Response, NextFunction } from 'express';
 import User, { IUser } from './../models/userModel';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import AppError from '../utils/appError';
 import catchAsync from '../utils/catchAsync';
 import Email from './../utils/email';
@@ -78,7 +79,6 @@ const login = catchAsync(
 
 const forgotPassword = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
-        // Get user based on posted email
         const user = await User.findOne({ email: req.body.email });
         if (!user) {
             return next(
@@ -86,12 +86,10 @@ const forgotPassword = catchAsync(
             );
         }
 
-        //   // Generate the random reset token
         const resetToken = user.createPasswordResetToken();
 
         await user.save({ validateBeforeSave: false });
 
-        // Send it to the user's email
         try {
             const resetURL = `http://localhost:3000/resetPassword/${resetToken}`;
             await new Email(user, resetURL).sendPasswordReset();
@@ -101,7 +99,6 @@ const forgotPassword = catchAsync(
                 message: 'Token sent to email!',
             });
         } catch (err) {
-            console.log('this is the send email err', err);
             user.passwordResetToken = undefined;
             user.passwordResetExpires = undefined;
             await user.save({ validateBeforeSave: false });
@@ -116,10 +113,35 @@ const forgotPassword = catchAsync(
     }
 );
 
+const resetPassword = catchAsync(
+    async (req: Request, res: Response, next: NextFunction) => {
+        const hashedToken = crypto
+            .createHash('sha256')
+            .update(req.params.token)
+            .digest('hex');
+
+        const user = await User.findOne({
+            passwordResetToken: hashedToken,
+            passwordResetExpires: { $gt: Date.now() },
+        });
+
+        if (!user) {
+            return next(new AppError('Token is not valid or has expired', 400));
+        }
+        user.password = req.body.password;
+        user.passwordResetToken = undefined;
+        user.passwordResetExpires = undefined;
+        await user.save();
+
+        createSendToken(user, 200, req, res);
+    }
+);
+
 const userController = {
     signup,
     login,
     forgotPassword,
+    resetPassword,
 };
 
 export default userController;
