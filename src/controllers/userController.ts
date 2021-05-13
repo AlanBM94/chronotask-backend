@@ -54,7 +54,14 @@ const signup = catchAsync(
     async (req: Request, res: Response, next: NextFunction) => {
         const { body } = req;
         const newUser = await User.create(body);
-        createSendToken(newUser, 201, req, res);
+        const confirmToken = signToken(newUser.email);
+        const resetURL = `http://localhost:3000/confirmation/${confirmToken}`;
+        await new Email(newUser, resetURL).sendConfirmation();
+        res.status(200).json({
+            status: 'success',
+            message: 'Confirm your email to login',
+        });
+        // createSendToken(newUser, 201, req, res);
     }
 );
 
@@ -71,6 +78,12 @@ const login = catchAsync(
 
         if (!user || !(await user.correctPassword(password, user.password))) {
             return next(new AppError('Incorrect email or password', 401));
+        }
+
+        if (!user.confirmed) {
+            return next(
+                new AppError('Please confirm your email to login.', 401)
+            );
         }
 
         createSendToken(user, 200, req, res);

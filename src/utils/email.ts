@@ -74,8 +74,11 @@ class Email implements IEmail {
         await this.newTransport().sendMail(mailOptions);
     }
 
-    async sendWelcome() {
-        await this.send('welcome', 'Welcome to the Natours family!');
+    async sendConfirmation() {
+        await this.send(
+            'confirm',
+            'Confirma tu email (válida solo por 10 minutos)'
+        );
     }
 
     async sendPasswordReset() {

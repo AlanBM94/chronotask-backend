@@ -1,0 +1,16 @@
+extends baseEmail
+
+block content
+  .content 
+    p Hola #{firstName}, Bienvenido a Chronotask
+    p Para confirmar tu email da click en el siguiente boton.
+    table.btn.btn-primary(role='presentation', border='0', cellpadding='0', cellspacing='0')
+      tbody
+        tr
+          td(align='left')
+            table(role='presentation', border='0', cellpadding='0', cellspacing='0')
+              tbody
+                tr
+                  td
+                    a(href=`${url}`, target='_blank') Confirmar email
+    p Si no olvidaste tu contraseña, por favor ignora este email.

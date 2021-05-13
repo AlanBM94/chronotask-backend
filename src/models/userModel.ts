@@ -10,6 +10,7 @@ export interface IUser extends Document {
     passwordChangedAt: Date;
     passwordResetToken: string | undefined;
     passwordResetExpires: Number | undefined;
+    confirmed: boolean;
     createPasswordResetToken(): string;
     correctPassword(candidatePassword: string, userPassword: string): boolean;
 }
@@ -38,6 +39,10 @@ const userSchema: Schema = new Schema({
     passwordChangedAt: Date,
     passwordResetToken: String,
     passwordResetExpires: Number,
+    confirmed: {
+        type: Boolean,
+        default: false,
+    },
 });
 
 userSchema.pre<IUser>('save', async function (next) {
