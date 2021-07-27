@@ -1,7 +1,7 @@
 import * as dotenv from 'dotenv';
 import { Request, Response, NextFunction } from 'express';
 import User, { IUser } from './../models/userModel';
-import jwt from 'jsonwebtoken';
+import jwt, { decode } from 'jsonwebtoken';
 import crypto from 'crypto';
 import AppError from '../utils/appError';
 import catchAsync from '../utils/catchAsync';
@@ -28,15 +28,13 @@ const createSendToken = (
     user: IUser,
     statusCode: number,
     req: Request,
-    res: Response
+    res: Response,
+    expirationTime: Date
 ) => {
     const token = signToken(user._id);
 
     res.cookie('jwt', token, {
-        expires: new Date(
-            Date.now() +
-                <any>process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
-        ),
+        expires: expirationTime,
         httpOnly: true,
         secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
     });
@@ -55,13 +53,12 @@ const signup = catchAsync(
         const { body } = req;
         const newUser = await User.create(body);
         const confirmToken = signToken(newUser.email);
-        const resetURL = `http://localhost:3000/confirmation/${confirmToken}`;
+        const resetURL = `http://localhost:3000/confirmationEmail/${confirmToken}`;
         await new Email(newUser, resetURL).sendConfirmation();
         res.status(200).json({
             status: 'success',
             message: 'Confirm your email to login',
         });
-        // createSendToken(newUser, 201, req, res);
     }
 );
 
@@ -86,7 +83,12 @@ const login = catchAsync(
             );
         }
 
-        createSendToken(user, 200, req, res);
+        const expirationTime = new Date(
+            Date.now() +
+                <any>process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+        );
+
+        createSendToken(user, 200, req, res, expirationTime);
     }
 );
 
@@ -96,6 +98,15 @@ const forgotPassword = catchAsync(
         if (!user) {
             return next(
                 new AppError('There is no user with email adress', 404)
+            );
+        }
+
+        if (!user.confirmed) {
+            return next(
+                new AppError(
+                    'Please confirm your email to reset your password.',
+                    401
+                )
             );
         }
 
@@ -141,20 +152,47 @@ const resetPassword = catchAsync(
         if (!user) {
             return next(new AppError('Token is not valid or has expired', 400));
         }
+
         user.password = req.body.password;
         user.passwordResetToken = undefined;
         user.passwordResetExpires = undefined;
         await user.save();
 
-        createSendToken(user, 200, req, res);
+        const expirationTime = new Date(Date.now() + <any>10 * 60 * 1000);
+
+        createSendToken(user, 200, req, res, expirationTime);
     }
 );
+
+interface IDecoded {
+    id: string;
+    iat: number;
+    exp: number;
+}
+
+const confirmEmail = catchAsync(async (req: Request, res: Response) => {
+    const { token } = req.params;
+    const decoded = jwt.verify(token, `${process.env.JWT_SECRET}`) as IDecoded;
+    const user = (await User.findOneAndUpdate(
+        { email: decoded.id },
+        { confirmed: true },
+        { new: true }
+    )) as IUser;
+
+    const expirationTime = new Date(
+        Date.now() +
+            <any>process.env.JWT_COOKIE_EXPIRES_IN * 24 * 60 * 60 * 1000
+    );
+
+    createSendToken(user, 200, req, res, expirationTime);
+});
 
 const userController = {
     signup,
     login,
     forgotPassword,
     resetPassword,
+    confirmEmail,
 };
 
 export default userController;

@@ -27,4 +27,7 @@ router.post(
 
 router.patch('/resetPassword/:token', userController.resetPassword);
 
+
+router.patch('/confirmEmail/:token', userController.confirmEmail)
+
 export default router;
