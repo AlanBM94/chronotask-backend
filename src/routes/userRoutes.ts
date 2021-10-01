@@ -1,4 +1,4 @@
-import express from 'express';
+import express, { NextFunction, RequestHandler } from 'express';
 import userController from './../controllers/userController';
 import {
     loginValidations,
@@ -8,6 +8,12 @@ import {
 import { checkValidations } from './../middlewares/checkValidationsErrors';
 
 const router = express.Router();
+
+router.get(
+    '/me',
+    userController.protect,
+    userController.getMe as RequestHandler
+);
 
 router.post(
     '/signup',
@@ -27,7 +33,6 @@ router.post(
 
 router.patch('/resetPassword/:token', userController.resetPassword);
 
-
-router.patch('/confirmEmail/:token', userController.confirmEmail)
+router.patch('/confirmEmail/:token', userController.confirmEmail);
 
 export default router;

@@ -13,6 +13,7 @@ export interface IUser extends Document {
     confirmed: boolean;
     createPasswordResetToken(): string;
     correctPassword(candidatePassword: string, userPassword: string): boolean;
+    changedPasswordAfter(JWTTimestamp: number): boolean;
 }
 
 const userSchema: Schema = new Schema({
@@ -69,6 +70,19 @@ userSchema.methods.createPasswordResetToken = function () {
         .digest('hex');
     this.passwordResetExpires = Date.now() + 10 * 60 * 1000;
     return resetToken;
+};
+
+userSchema.methods.changedPasswordAfter = function (JWTTimestamp: number) {
+    if (this.passwordChangedAt) {
+        const changedTimestamp = Math.floor(
+            this.passwordChangedAt.getTime() / 1000
+        );
+
+        return JWTTimestamp < changedTimestamp;
+    }
+
+    // False means NOT changed
+    return false;
 };
 
 export default mongoose.model<IUser>('User', userSchema);

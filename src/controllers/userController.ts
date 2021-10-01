@@ -1,5 +1,6 @@
 import * as dotenv from 'dotenv';
 import { Request, Response, NextFunction } from 'express';
+import { IDecoded, createUserOutput, IGetUserAuthInfoRequest } from './helpers';
 import User, { IUser } from './../models/userModel';
 import jwt, { decode } from 'jsonwebtoken';
 import crypto from 'crypto';
@@ -16,13 +17,6 @@ const signToken = (id: string) => {
         });
     }
 };
-
-const createUserOutput = (user: IUser) => ({
-    photo: user.photo,
-    _id: user._id,
-    name: user.name,
-    email: user.email,
-});
 
 const createSendToken = (
     user: IUser,
@@ -164,12 +158,6 @@ const resetPassword = catchAsync(
     }
 );
 
-interface IDecoded {
-    id: string;
-    iat: number;
-    exp: number;
-}
-
 const confirmEmail = catchAsync(async (req: Request, res: Response) => {
     const { token } = req.params;
     const decoded = jwt.verify(token, `${process.env.JWT_SECRET}`) as IDecoded;
@@ -187,12 +175,88 @@ const confirmEmail = catchAsync(async (req: Request, res: Response) => {
     createSendToken(user, 200, req, res, expirationTime);
 });
 
+const protect = catchAsync(
+    async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+        // 1) Getting token and check of it's there
+        let token;
+        if (
+            req.headers.authorization &&
+            req.headers.authorization.startsWith('Bearer')
+        ) {
+            token = req.headers.authorization.split(' ')[1];
+        } else if (req.cookies.jwt) {
+            token = req.cookies.jwt;
+        }
+
+        if (!token) {
+            return next(
+                new AppError(
+                    'You are not logged in! Please log in to get access.',
+                    401
+                )
+            );
+        }
+
+        // 2) Verification token
+        const decoded = jwt.verify(
+            token,
+            process.env.JWT_SECRET as string
+        ) as IDecoded;
+
+        // 3) Check if user still exists
+        const currentUser = await User.findById(decoded.id);
+
+        if (!currentUser) {
+            return next(
+                new AppError(
+                    'The user belonging to this token does no longer exist.',
+                    401
+                )
+            );
+        }
+
+        // 4) Check if user changed password after the token was issued
+        if (currentUser.changedPasswordAfter(decoded.iat)) {
+            return next(
+                new AppError(
+                    'User recently changed password! Please log in again.',
+                    401
+                )
+            );
+        }
+
+        //GRANT ACCESS TO PROTECTED ROUTE
+        req.user = currentUser;
+        res.locals.user = currentUser;
+        next();
+    }
+);
+
+const getMe = (
+    req: IGetUserAuthInfoRequest,
+    res: Response,
+    next: NextFunction
+) => {
+    if (req.user) {
+        return res.status(200).json({
+            success: true,
+            data: req.user,
+        });
+    }
+    res.status(401).json({
+        success: false,
+        data: null,
+    });
+};
+
 const userController = {
     signup,
     login,
     forgotPassword,
     resetPassword,
     confirmEmail,
+    protect,
+    getMe,
 };
 
 export default userController;
