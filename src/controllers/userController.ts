@@ -2,6 +2,7 @@ import * as dotenv from 'dotenv';
 import { Request, Response, NextFunction } from 'express';
 import { IDecoded, createUserOutput, IGetUserAuthInfoRequest } from './helpers';
 import User, { IUser } from './../models/userModel';
+import Task from '../models/taskModel';
 import jwt, { decode } from 'jsonwebtoken';
 import crypto from 'crypto';
 import AppError from '../utils/appError';
@@ -13,12 +14,12 @@ dotenv.config();
 const signToken = (id: string) => {
     if (process.env.JWT_SECRET) {
         return jwt.sign({ id }, process.env.JWT_SECRET, {
-            expiresIn: process.env.JWT_EXPIRES_IN,
+            expiresIn: process.env.JWT_COOKIE_EXPIRES_IN_STRING,
         });
     }
 };
 
-const createSendToken = (
+const createSendToken = async (
     user: IUser,
     statusCode: number,
     req: Request,
@@ -203,8 +204,14 @@ const protect = catchAsync(
             process.env.JWT_SECRET as string
         ) as IDecoded;
 
+        if (Date.now() >= decoded.exp * 1000) {
+            return next(new AppError('The user session has expired', 401));
+        }
+
         // 3) Check if user still exists
-        const currentUser = await User.findById(decoded.id);
+        const currentUser = await User.findOne({
+            _id: decoded.id,
+        });
 
         if (!currentUser) {
             return next(
@@ -251,6 +258,25 @@ const getMe = (
     });
 };
 
+const getTasksByUserId = catchAsync(
+    async (req: IGetUserAuthInfoRequest, res: Response, next: NextFunction) => {
+        const userExists = await User.findById(req.params.userId);
+
+        if (!userExists) {
+            return next(new AppError('No user found with that ID', 404));
+        }
+
+        const tasks = await Task.find({ user: req.params.userId });
+
+        res.status(200).json({
+            success: true,
+            data: {
+                tasks,
+            },
+        });
+    }
+);
+
 const userController = {
     signup,
     login,
@@ -259,6 +285,7 @@ const userController = {
     confirmEmail,
     protect,
     getMe,
+    getTasksByUserId,
 };
 
 export default userController;

@@ -1,14 +1,14 @@
 import mongoose, { Schema, Document } from 'mongoose';
 import { IUser } from './userModel';
 
-export interface IActivity extends Document {
+export interface ITask extends Document {
     name: string;
     tag: string;
     time: Number;
     user: IUser['_id'];
 }
 
-const activitySchema: Schema = new Schema({
+const taskSchema: Schema = new Schema({
     name: {
         type: String,
         required: [true, 'name is required'],
@@ -18,10 +18,14 @@ const activitySchema: Schema = new Schema({
         required: [true, 'tag is required'],
     },
     time: {
-        type: Number,
-        default: 0,
+        type: String,
+        default: '00:00:00',
     },
     user: { type: Schema.Types.ObjectId, required: true },
+    date: {
+        type: Date,
+        default: Date.now(),
+    },
 });
 
-export default mongoose.model<IActivity>('Activity', activitySchema);
+export default mongoose.model<ITask>('Task', taskSchema);

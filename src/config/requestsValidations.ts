@@ -36,3 +36,8 @@ export const forgotPasswordValidations = [
     check('email', 'email is required').not().isEmpty(),
     check('email', 'Please enter a valid email').isEmail(),
 ];
+
+export const createTaskValidations = [
+    check('name', 'name is required').not().isEmpty(),
+    check('tag', 'tag is required').not().isEmpty(),
+];

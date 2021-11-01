@@ -4,8 +4,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import AppError from './utils/appError';
 import globalErrorHandler from './controllers/errorController';
-
 import userRoutes from './routes/userRoutes';
+import taskRoutes from './routes/taskRoutes';
 
 const app = express();
 
@@ -20,6 +20,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/v1/users', userRoutes);
+app.use('/api/v1/tasks', taskRoutes);
 
 app.all('*', (req, res, next) => {
     next(new AppError(`Can't find ${req.originalUrl} on this server!`, 404));

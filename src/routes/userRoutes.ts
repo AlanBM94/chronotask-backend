@@ -15,6 +15,12 @@ router.get(
     userController.getMe as RequestHandler
 );
 
+router.get(
+    '/:userId/tasks',
+    userController.protect,
+    userController.getTasksByUserId as RequestHandler
+);
+
 router.post(
     '/signup',
     registerValidations,
